@@ -1,80 +1,201 @@
-# Wineard - Voice Wine Explorer by Onki
+# Voice-Based Wine Assistant
 
-A premium, Apple-inspired voice-based wine assistant web application.
+Voice-Based Wine Assistant is a single-page web app built for the Onki internship assignment. It lets a user ask questions about a wine dataset by voice or text and receive answers back as:
 
-## 🍷 Features
+- on-screen text
+- structured wine results
+- spoken voice from the frontend
 
-- **Voice-First Experience**: Ask questions about wines using your voice
-- **Intelligent Answers**: Get recommendations based on price, region, rating, and occasion
-- **Text-to-Speech**: Wineard speaks answers aloud
-- **Premium UI**: Glassmorphism design with smooth animations
-- **Multiple Screens**: Welcome → Intro → Voice Interface
-- **Animated Mascot**: State-based character animations (idle, listening, processing, responding)
-- **Real Wine Data**: Loads from Google Sheets dataset
+The core requirement for this project was to keep answers grounded in the provided dataset and avoid inventing facts. The app is designed around deterministic dataset retrieval, with an optional OpenAI fallback used only for query interpretation on vague prompts.
 
-## 🎨 Design Highlights
+## Demo Scope
 
-- Deep wine red (#5B0F1A) color scheme
-- Gradient backgrounds with ambient blur effects
-- Glassmorphism panels with backdrop blur
-- Smooth Motion (Framer Motion) animations
-- Voice waveform visualization
-- Responsive design
+The app supports questions like:
 
-## 🎤 Example Questions
+- `Which are the best-rated wines under $50?`
+- `What do you have from Burgundy?`
+- `What is the most expensive bottle you have?`
+- `Recommend me some red wine in United States under $50 for a gift`
+- `What about white wine in United States`
 
-Try asking:
-- "Which are the best-rated wines under $50?"
-- "What do you have from Burgundy?"
-- "What's the most expensive bottle you have?"
-- "Which bottles would make a good housewarming gift?"
+It also handles:
 
-## 🏗️ Tech Stack
+- unsupported queries honestly
+- ambiguous queries by asking for clarification
+- recommendation-style prompts through transparent heuristics over dataset fields
 
-- **React** with TypeScript
-- **React Router** for navigation
-- **Motion** (Framer Motion) for animations
-- **Web Speech API** for voice recognition and synthesis
-- **Tailwind CSS v4** for styling
-- **Google Sheets** as data source
+## Tech Stack
 
-## 🚀 How It Works
+Frontend:
 
-1. **Welcome Screen**: Landing page with call-to-action
-2. **Transition Screen**: Animated intro with mascot
-3. **Voice Interface**: Main screen where you interact with Wineard
-   - Tap microphone to ask questions
-   - Wineard listens, processes, and responds
-   - View transcripts and responses on screen
-   - Hear answers spoken aloud
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Motion
+- Web Speech API
 
-## 📊 Data Source
+Backend:
 
-Wine data is loaded from a public Google Sheets spreadsheet containing:
-- Wine names
-- Regions
-- Varietals
-- Vintages
-- Prices
-- Ratings
-- Descriptions
+- Python
+- FastAPI
+- pandas
+- httpx
+- rapidfuzz
+- optional OpenAI fallback for vague-query parsing
 
-## 🎯 Voice States
+## Architecture
 
-- **Idle**: Ready to listen (gentle floating animation)
-- **Listening**: Recording your question (ear highlighted, waveform visible)
-- **Processing**: Analyzing question (pulsing glow)
-- **Responding**: Speaking answer (bounce animation)
+The system has three main stages:
 
-## 🌐 Browser Compatibility
+1. Question capture
+   - The frontend uses browser speech recognition or typed input.
 
-Best experienced in:
-- Chrome/Edge (full Web Speech API support)
-- Safari (partial support)
-- Firefox (limited support)
+2. Query interpretation
+   - Clear prompts are handled with rule-based parsing.
+   - Vague prompts can fall back to OpenAI for structured query extraction only.
 
-**Note**: Voice recognition requires HTTPS in production.
+3. Grounded retrieval and response generation
+   - The backend filters the normalized wine dataset.
+   - Final answers are generated only from matching rows in the dataset.
 
----
+This keeps the app flexible for natural language while still grounded in the spreadsheet.
 
-Built with ❤️ for Onki
+## Dataset
+
+Primary source of truth:
+
+- Google Sheet CSV export from the provided Onki wine dataset
+
+The backend loads:
+
+- `Name`
+- `Producer`
+- `Country`
+- `Region`
+- `Appellation`
+- `Retail`
+- `Varietal`
+- `Vintage`
+- `color`
+- `ABV`
+- `professional_ratings`
+- `reference_url`
+- `image_url`
+- `volume_ml`
+
+It normalizes text fields, converts numeric fields, and derives an average rating from `professional_ratings`.
+
+## Project Structure
+
+```text
+Onki/
+  backend/
+    app/
+      routes/
+      services/
+      utils/
+    requirements.txt
+  src/
+    app/
+      components/
+      screens/
+      utils/
+    assets/
+    styles/
+  package.json
+```
+
+## Running the Project
+
+### 1. Start the backend
+
+```bash
+cd /Users/shravankarande/Onki/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Backend runs on:
+
+- `http://127.0.0.1:8000`
+
+### 2. Start the frontend
+
+```bash
+cd /Users/shravankarande/Onki
+npm install
+VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+```
+
+Open the local Vite URL printed in the terminal.
+
+## Optional OpenAI Hybrid Parser
+
+The app works without OpenAI. In that mode, it uses rule-based parsing only.
+
+To enable hybrid parsing for vague prompts, create:
+
+- [`backend/.env`](./backend/.env)
+
+with:
+
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+ONKI_OPENAI_MODEL=gpt-4.1-mini
+```
+
+Important:
+
+- OpenAI is used only to interpret vague prompts into structured fields.
+- OpenAI is not used to generate final wine facts.
+- Final answers are still generated only from dataset rows.
+
+## API Overview
+
+Main endpoints:
+
+- `GET /health`
+- `GET /wines`
+- `POST /ask`
+- `POST /refresh-data`
+
+Example request:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/ask" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Which are the best-rated wines under $50?"}'
+```
+
+## Design Decisions
+
+- Grounded answers first: the answer engine always uses the dataset as the source of truth.
+- Deterministic parsing for clear prompts: better latency, lower cost, easier debugging.
+- OpenAI only as fallback: improves vague prompt handling without turning the app into a hallucination-prone chatbot.
+- Honest unsupported handling: if the dataset cannot support the question, the backend says so.
+- Transparent recommendations: prompts like gift suggestions use explicit heuristics over rating and price instead of pretending the spreadsheet contains that label.
+
+## Example Unsupported Behavior
+
+If a user asks:
+
+- `What wine pairs best with sushi?`
+
+the backend will not fabricate a pairing answer, because the dataset does not include food pairing data.
+
+## Submission Notes
+
+This project was built to demonstrate:
+
+- product thinking
+- data grounding
+- voice UX
+- modular backend design
+- practical AI integration without overengineering
+
+## Additional Docs
+
+- Backend details: [`backend/README.md`](./backend/README.md)
