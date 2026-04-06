@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+.ipynb_checkpoints/
+Current_mistakes/
+backend/.venv/
+backend/.env
+__pycache__/
+*.pyc
+*.log
+Voice Wine Assistant UI.zip
+Resume SK.pdf
